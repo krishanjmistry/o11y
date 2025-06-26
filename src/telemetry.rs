@@ -1,15 +1,14 @@
+use std::env;
 use std::sync::OnceLock;
 
 use opentelemetry::KeyValue;
 use opentelemetry::global::{self, BoxedTracer};
-use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
+use opentelemetry::trace::TracerProvider;
 use opentelemetry_resource_detectors::{OsResourceDetector, ProcessResourceDetector};
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::SdkLoggerProvider;
-use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::resource::ResourceDetector;
 use opentelemetry_sdk::trace::SdkTracerProvider;
-use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
@@ -32,23 +31,19 @@ fn get_resource() -> Resource {
         .build()
 }
 
-fn init_tracer_provider() {
-    global::set_text_map_propagator(TraceContextPropagator::new());
-
+fn init_tracer_provider() -> SdkTracerProvider {
     let exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
         .build()
         .expect("Failed to create span exporter");
 
-    let tracer_provider = SdkTracerProvider::builder()
+    SdkTracerProvider::builder()
         .with_resource(get_resource())
         .with_batch_exporter(exporter)
-        .build();
-
-    global::set_tracer_provider(tracer_provider);
+        .build()
 }
 
-fn init_logger_provider() {
+fn init_logger_provider(tracer_provider: SdkTracerProvider) {
     let exporter = opentelemetry_otlp::LogExporter::builder()
         .with_tonic()
         .build()
@@ -65,7 +60,11 @@ fn init_logger_provider() {
         .add_directive("h2=off".parse().unwrap())
         .add_directive("reqwest=off".parse().unwrap());
 
-    let otel_layer = OpenTelemetryTracingBridge::new(&logger_provider).with_filter(filter_otel);
+    // let otel_layer = OpenTelemetryTracingBridge::new(&logger_provider).with_filter(filter_otel);
+
+    let tracer_layer = tracing_opentelemetry::layer()
+        .with_tracer(tracer_provider.tracer(env!("CARGO_PKG_NAME")))
+        .with_filter(filter_otel);
 
     // Uncomment the following lines to enable debug logging to local terminal
     // let filter_fmt = EnvFilter::new("info").add_directive("opentelemetry=debug".parse().unwrap());
@@ -74,13 +73,12 @@ fn init_logger_provider() {
     //     .with_filter(filter_fmt);
 
     tracing_subscriber::registry()
-        .with(otel_layer)
-        // .with(fmt_layer)
+        // .with(otel_layer)
+        .with(tracer_layer)
         .init();
 }
 
 pub fn init_telemetry() {
-    init_tracer_provider();
-    init_logger_provider();
-    info!("Telemetry initialized");
+    let tracer_provider = init_tracer_provider();
+    init_logger_provider(tracer_provider);
 }

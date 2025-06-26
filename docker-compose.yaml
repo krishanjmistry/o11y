@@ -11,59 +11,35 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_AUTH_DISABLE_LOGIN_FORM=true
-  # tempo:
-  #   image: grafana/tempo:latest
-  #   container_name: tempo
-  #   restart: unless-stopped
-  #   ports:
-  #     - "14268:14268"  # jaeger ingest
-  #     - "3200:3200"   # tempo
-  #     - "9095:9095" # tempo grpc
-  #     - "4317:4317"  # otlp grpc
-  #     - "4318:4318"  # otlp http
-  #     - "9411:9411"   # zipkin
-  #   environment:
-  #     - TEMPO_STORAGE_BACKEND=local
-  #     - TEMPO_LOCAL_STORAGE_PATH=/var/lib/tempo
-  #   volumes:
-  #     - tempo-storage:/var/lib/tempo
-  # tempo:
-  #   image: grafana/tempo:latest
-  #   command: [ "-config.file=/etc/tempo.yaml" ]
-  #   volumes:
-  #     - ./tempo.yaml:/etc/tempo.yaml
-  #     - tempo-data:/var/tempo
-  #   ports:
-  #     - "14268:14268"  # jaeger ingest
-  #     - "3200:3200"   # tempo
-  #     - "9095:9095" # tempo grpc
-  #     - "4317:4317"  # otlp grpc
-  #     - "4318:4318"  # otlp http
-  #     - "9411:9411"   # zipkin
-    # depends_on:
-    #   - init
-    #   - memcached
-  # loki:
-  #   image: grafana/loki:latest
-  #   ports:
-  #     - "3100:3100"
-  #   command: [ "-config.file=/etc/loki/local-config.yaml" ]
-  #   volumes:
-  #     - loki-data:/loki
-    # networks:
-    #   - loki
+  tempo:
+    image: grafana/tempo:latest
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    restart: unless-stopped
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+      - tempo-data:/var/lib/tempo
+    environment:
+      - TEMPO_STORAGE_BACKEND=local
+      - TEMPO_LOCAL_STORAGE_PATH=/var/lib/tempo
+    ports:
+      - "3200:3200"   # tempo
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: [ "-config.file=/etc/loki/config.yaml" ]
+    restart: unless-stopped
+    volumes:
+      - ./loki-config.yaml:/etc/loki/config.yaml
   otel-collector:
     image: otel/opentelemetry-collector-contrib
+    depends_on:
+      - loki
+      - tempo
     volumes:
       - ./otel-config.yaml:/etc/otelcol-contrib/config.yaml
     ports:
-      - 1888:1888 # pprof extension
-      - 8888:8888 # Prometheus metrics exposed by the Collector
-      - 8889:8889 # Prometheus exporter metrics
-      - 13133:13133 # health_check extension
       - 4317:4317 # OTLP gRPC receiver
-      - 4318:4318 # OTLP http receiver
-      - 55679:55679 # zpages extension
 volumes:
   grafana-storage: {}
   tempo-storage: {}
