@@ -10,30 +10,6 @@ use tracing::{Span, field, info, info_span};
 
 pub mod telemetry;
 
-#[tracing::instrument]
-fn expensive_operation() {
-    info!("Starting expensive operation");
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    info!("Expensive operation completed");
-}
-
-#[tracing::instrument]
-async fn roll_dice(_: Request<hyper::body::Incoming>) -> Result<Response<Full<Bytes>>, Infallible> {
-    let current_span = Span::current();
-
-    current_span.record("something_has_gone_wrong", true);
-
-    info!("Received request to roll a dice");
-    let random_number = rand::rng().random_range(1..=6);
-    info!("Rolled a dice and got: {}", random_number);
-    expensive_operation();
-
-    expensive_operation();
-    Ok(Response::new(Full::new(Bytes::from(
-        random_number.to_string(),
-    ))))
-}
-
 pub async fn handle(
     req: Request<hyper::body::Incoming>,
 ) -> Result<Response<Full<Bytes>>, Infallible> {
@@ -61,4 +37,28 @@ pub async fn handle(
                 .unwrap())
         }
     }
+}
+
+#[tracing::instrument]
+fn expensive_operation() {
+    info!("Starting expensive operation");
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    info!("Expensive operation completed");
+}
+
+#[tracing::instrument]
+async fn roll_dice(_: Request<hyper::body::Incoming>) -> Result<Response<Full<Bytes>>, Infallible> {
+    let current_span = Span::current();
+
+    current_span.record("something_has_gone_wrong", true);
+
+    info!("Received request to roll a dice");
+    let random_number = rand::rng().random_range(1..=6);
+    info!("Rolled a dice and got: {}", random_number);
+    expensive_operation();
+
+    expensive_operation();
+    Ok(Response::new(Full::new(Bytes::from(
+        random_number.to_string(),
+    ))))
 }

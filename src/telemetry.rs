@@ -18,7 +18,7 @@ pub fn get_tracer() -> &'static BoxedTracer {
     TRACER.get_or_init(|| global::tracer("dice_server"))
 }
 
-fn get_resource() -> Resource {
+fn resource() -> Resource {
     let detectors: Vec<Box<dyn ResourceDetector>> = vec![
         Box::new(OsResourceDetector),
         Box::new(ProcessResourceDetector),
@@ -38,22 +38,24 @@ fn init_tracer_provider() -> SdkTracerProvider {
         .expect("Failed to create span exporter");
 
     SdkTracerProvider::builder()
-        .with_resource(get_resource())
+        .with_resource(resource())
         .with_batch_exporter(exporter)
         .build()
 }
 
-fn init_logger_provider(tracer_provider: SdkTracerProvider) {
+fn init_logger_provider() -> SdkLoggerProvider {
     let exporter = opentelemetry_otlp::LogExporter::builder()
         .with_tonic()
         .build()
         .expect("Failed to create log exporter");
 
-    let logger_provider = SdkLoggerProvider::builder()
-        .with_resource(get_resource())
+    SdkLoggerProvider::builder()
+        .with_resource(resource())
         .with_batch_exporter(exporter)
-        .build();
+        .build()
+}
 
+fn init_subscriber(tracer_provider: SdkTracerProvider) {
     let filter_otel = EnvFilter::new("info")
         .add_directive("hyper=off".parse().unwrap())
         .add_directive("tonic=off".parse().unwrap())
@@ -75,10 +77,12 @@ fn init_logger_provider(tracer_provider: SdkTracerProvider) {
     tracing_subscriber::registry()
         // .with(otel_layer)
         .with(tracer_layer)
-        .init();
+        .init()
 }
 
 pub fn init_telemetry() {
     let tracer_provider = init_tracer_provider();
-    init_logger_provider(tracer_provider);
+    let _logger_provider = init_logger_provider();
+    init_subscriber(tracer_provider);
+    // init_logger_provider(tracer_provider);
 }
