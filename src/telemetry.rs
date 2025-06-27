@@ -4,6 +4,7 @@ use std::sync::OnceLock;
 use opentelemetry::KeyValue;
 use opentelemetry::global::{self, BoxedTracer};
 use opentelemetry::trace::TracerProvider;
+use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_resource_detectors::{OsResourceDetector, ProcessResourceDetector};
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::SdkLoggerProvider;
@@ -55,18 +56,18 @@ fn init_logger_provider() -> SdkLoggerProvider {
         .build()
 }
 
-fn init_subscriber(tracer_provider: SdkTracerProvider) {
+fn init_subscriber(tracer_provider: SdkTracerProvider, logger_provider: SdkLoggerProvider) {
     let filter_otel = EnvFilter::new("info")
         .add_directive("hyper=off".parse().unwrap())
         .add_directive("tonic=off".parse().unwrap())
         .add_directive("h2=off".parse().unwrap())
         .add_directive("reqwest=off".parse().unwrap());
 
-    // let otel_layer = OpenTelemetryTracingBridge::new(&logger_provider).with_filter(filter_otel);
+    let logger_layer = OpenTelemetryTracingBridge::new(&logger_provider).with_filter(filter_otel);
 
-    let tracer_layer = tracing_opentelemetry::layer()
-        .with_tracer(tracer_provider.tracer(env!("CARGO_PKG_NAME")))
-        .with_filter(filter_otel);
+    // let tracer_layer = tracing_opentelemetry::layer()
+    //     .with_tracer(tracer_provider.tracer(env!("CARGO_PKG_NAME")))
+    //     .with_filter(filter_otel);
 
     // Uncomment the following lines to enable debug logging to local terminal
     // let filter_fmt = EnvFilter::new("info").add_directive("opentelemetry=debug".parse().unwrap());
@@ -75,14 +76,13 @@ fn init_subscriber(tracer_provider: SdkTracerProvider) {
     //     .with_filter(filter_fmt);
 
     tracing_subscriber::registry()
-        // .with(otel_layer)
-        .with(tracer_layer)
+        .with(logger_layer)
+        // .with(tracer_layer)
         .init()
 }
 
 pub fn init_telemetry() {
     let tracer_provider = init_tracer_provider();
-    let _logger_provider = init_logger_provider();
-    init_subscriber(tracer_provider);
-    // init_logger_provider(tracer_provider);
+    let logger_provider = init_logger_provider();
+    init_subscriber(tracer_provider, logger_provider);
 }
