@@ -3,8 +3,8 @@ receivers:
     protocols:
       grpc:
         endpoint: 0.0.0.0:4317
-      http:
-        endpoint: 0.0.0.0:4318
+      # http:
+      #   endpoint: 0.0.0.0:4318
 
 processors:
   batch:
@@ -12,36 +12,16 @@ processors:
 exporters:
   debug:
     verbosity: detailed
-    # loglevel: info
 
-  # otlp/traces:
-  #   endpoint: tempo:4317
-  #   tls:
-  #     insecure: true
-  
+  otlp/traces:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
   otlphttp/logs:
     endpoint: http://loki:3100/otlp
     tls:
       insecure: true
-
-  # otlphttp:
-  #   endpoint: tempo:4318
-  #   tls:
-  #     insecure: true
-  # otlp:
-  #   endpoint: tempo-us-central1.grafana.net:443
-  #   headers:
-  #     authorization: Basic <base64 data>
-  
-  # otlp/logs:
-  #   endpoint: loki:3100
-  #   tls:
-  #     insecure: true
-  # loki:
-  #   endpoint: http://loki:3100/otlp
-  #   tls:
-  #     insecure: true
-  
 
 service:
   pipelines:
@@ -49,7 +29,7 @@ service:
       receivers: [otlp]
       processors: [batch]
       exporters: [debug, otlphttp/logs]
-    # traces:
-    #   receivers: [otlp]
-    #   processors: [batch]
-    #   exporters: [debug, otlp/traces]
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, otlp/traces]

@@ -56,33 +56,43 @@ fn init_logger_provider() -> SdkLoggerProvider {
         .build()
 }
 
-fn init_subscriber(tracer_provider: SdkTracerProvider, logger_provider: SdkLoggerProvider) {
+fn init_subscriber(
+    tracer_provider: SdkTracerProvider,
+    logger_provider: SdkLoggerProvider,
+    local_logging: bool,
+) {
     let filter_otel = EnvFilter::new("info")
         .add_directive("hyper=off".parse().unwrap())
         .add_directive("tonic=off".parse().unwrap())
         .add_directive("h2=off".parse().unwrap())
         .add_directive("reqwest=off".parse().unwrap());
 
-    let logger_layer = OpenTelemetryTracingBridge::new(&logger_provider).with_filter(filter_otel);
+    let logger_layer = OpenTelemetryTracingBridge::new(&logger_provider);
 
-    // let tracer_layer = tracing_opentelemetry::layer()
-    //     .with_tracer(tracer_provider.tracer(env!("CARGO_PKG_NAME")))
-    //     .with_filter(filter_otel);
+    let tracer_layer =
+        tracing_opentelemetry::layer().with_tracer(tracer_provider.tracer(env!("CARGO_PKG_NAME")));
 
-    // Uncomment the following lines to enable debug logging to local terminal
-    // let filter_fmt = EnvFilter::new("info").add_directive("opentelemetry=debug".parse().unwrap());
-    // let fmt_layer = tracing_subscriber::fmt::layer()
-    //     .with_thread_names(true)
-    //     .with_filter(filter_fmt);
-
-    tracing_subscriber::registry()
+    let subscriber = tracing_subscriber::registry()
+        .with(filter_otel)
         .with(logger_layer)
-        // .with(tracer_layer)
-        .init()
+        .with(tracer_layer);
+
+    if local_logging {
+        // Uncomment the following lines to enable debug logging to local terminal
+        let filter_fmt =
+            EnvFilter::new("info").add_directive("opentelemetry=debug".parse().unwrap());
+        let local_layer = tracing_subscriber::fmt::layer()
+            .with_thread_names(true)
+            .with_filter(filter_fmt);
+        // If local logging is enabled, add the local layer
+        subscriber.with(local_layer).init()
+    } else {
+        subscriber.init()
+    }
 }
 
 pub fn init_telemetry() {
     let tracer_provider = init_tracer_provider();
     let logger_provider = init_logger_provider();
-    init_subscriber(tracer_provider, logger_provider);
+    init_subscriber(tracer_provider, logger_provider, false);
 }

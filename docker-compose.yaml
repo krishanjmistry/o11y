@@ -4,7 +4,7 @@ services:
     container_name: grafana
     restart: unless-stopped
     ports:
-      - '3000:3000'
+      - 3000:3000
     volumes:
       - grafana-storage:/var/lib/grafana
     environment:
@@ -22,11 +22,11 @@ services:
       - TEMPO_STORAGE_BACKEND=local
       - TEMPO_LOCAL_STORAGE_PATH=/var/lib/tempo
     ports:
-      - "3200:3200"   # tempo
+      - 3200:3200
   loki:
     image: grafana/loki:latest
     ports:
-      - "3100:3100"
+      - 3100:3100
     command: [ "-config.file=/etc/loki/config.yaml" ]
     restart: unless-stopped
     volumes:
