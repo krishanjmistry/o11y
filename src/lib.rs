@@ -50,6 +50,7 @@ fn expensive_operation() {
 async fn roll_dice(_: Request<hyper::body::Incoming>) -> Result<Response<Full<Bytes>>, Infallible> {
     let current_span = Span::current();
 
+    // The following `record`` does nothing to the output as `something_has_gone_wrong` is not declared - it needs to be declared at span declaration
     current_span.record("something_has_gone_wrong", true);
 
     info!("Received request to roll a dice");

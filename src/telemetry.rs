@@ -1,8 +1,6 @@
 use std::env;
-use std::sync::OnceLock;
 
 use opentelemetry::KeyValue;
-use opentelemetry::global::{self, BoxedTracer};
 use opentelemetry::trace::TracerProvider;
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_resource_detectors::{OsResourceDetector, ProcessResourceDetector};
@@ -13,11 +11,6 @@ use opentelemetry_sdk::trace::SdkTracerProvider;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
-
-pub fn get_tracer() -> &'static BoxedTracer {
-    static TRACER: OnceLock<BoxedTracer> = OnceLock::new();
-    TRACER.get_or_init(|| global::tracer("dice_server"))
-}
 
 fn resource() -> Resource {
     let detectors: Vec<Box<dyn ResourceDetector>> = vec![
@@ -78,13 +71,11 @@ fn init_subscriber(
         .with(tracer_layer);
 
     if local_logging {
-        // Uncomment the following lines to enable debug logging to local terminal
         let filter_fmt =
             EnvFilter::new("info").add_directive("opentelemetry=debug".parse().unwrap());
         let local_layer = tracing_subscriber::fmt::layer()
             .with_thread_names(true)
             .with_filter(filter_fmt);
-        // If local logging is enabled, add the local layer
         subscriber.with(local_layer).init()
     } else {
         subscriber.init()
