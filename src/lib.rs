@@ -6,7 +6,7 @@ use hyper::body::Bytes;
 use hyper::{Request, Response};
 
 use rand::Rng;
-use tracing::{Span, field, info, info_span};
+use tracing::{Span, error, field, info, info_span};
 
 pub mod telemetry;
 
@@ -58,8 +58,47 @@ async fn roll_dice(_: Request<hyper::body::Incoming>) -> Result<Response<Full<By
     info!("Rolled a dice and got: {}", random_number);
     expensive_operation();
 
+    let colour = match get_colour().await {
+        Ok(colour) => {
+            info!("Received colour: {}", colour);
+            colour
+        }
+        Err(e) => {
+            info!("Error fetching colour: {}", e);
+            "rainbow".to_string() // Default to rainbow if there's an error
+        }
+    };
+
     expensive_operation();
-    Ok(Response::new(Full::new(Bytes::from(
-        random_number.to_string(),
-    ))))
+    Ok(Response::new(Full::new(Bytes::from(format!(
+        "Rolled a dice and got: {}, Colour: {}",
+        random_number, colour
+    )))))
+}
+
+#[tracing::instrument]
+async fn get_colour() -> Result<String, Infallible> {
+    info!("Received request for colour");
+
+    let request = reqwest::get("http://localhost:8000/colour").await;
+
+    let colour = match request {
+        Ok(response) => {
+            if response.status().is_success() {
+                info!("Successfully fetched colour from Python service");
+                let colour = response.text().await.unwrap_or("rainbow".to_string());
+                info!("Received colour: {}", colour);
+                colour
+            } else {
+                error!("Failed to fetch colour, status: {}", response.status());
+                "rainbow".to_string()
+            }
+        }
+        Err(e) => {
+            error!("Error fetching colour: {}", e);
+            "rainbow".to_string()
+        }
+    };
+
+    Ok(colour)
 }
